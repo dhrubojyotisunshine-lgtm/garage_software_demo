@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RECKON MOTORS — Software Flow Map</title>
+<style>
+  :root{
+    --ground:#FAF7F5; --surface:#FFFFFF; --surface-2:#F3EEEB;
+    --ink:#1B1D23; --ink-soft:#5A544F; --ink-faint:#938C86;
+    --line:#E8E1DC; --accent:#E23A36; --accent-ink:#B32521; --accent-soft:#FBEAE9;
+    --shadow:0 1px 2px rgba(27,29,35,.04), 0 12px 34px rgba(27,29,35,.07);
+    --font:"Segoe UI",system-ui,-apple-system,"Helvetica Neue",Arial,sans-serif;
+  }
+  @media (prefers-color-scheme:dark){
+    :root{--ground:#131418;--surface:#1B1D22;--surface-2:#23262D;--ink:#F1EDEA;
+      --ink-soft:#ABA49E;--ink-faint:#736C67;--line:#2B2E35;--accent:#FF5A54;
+      --accent-ink:#FF7A75;--accent-soft:rgba(255,90,84,.12);
+      --shadow:0 1px 2px rgba(0,0,0,.3),0 14px 36px rgba(0,0,0,.4);}
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--ground);color:var(--ink);font-family:var(--font);line-height:1.6;
+    -webkit-font-smoothing:antialiased;}
+  .wrap{max-width:1000px;margin:0 auto;padding:clamp(26px,5vw,60px) clamp(18px,5vw,40px);}
+  .eyebrow{font-size:.72rem;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--accent-ink);}
+  h1{font-size:clamp(1.9rem,4.5vw,2.8rem);font-weight:800;letter-spacing:-.02em;margin:12px 0 0;text-wrap:balance;}
+  .dek{color:var(--ink-soft);max-width:60ch;margin:16px 0 0;font-size:1.05rem;}
+  .brand{display:flex;align-items:center;gap:12px;margin-bottom:34px;}
+  .mark{width:38px;height:38px;border-radius:10px;background:var(--accent);display:flex;
+    align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(226,58,54,.28);}
+  .mark svg{width:21px;height:21px;}
+  .brand-name{font-weight:800;letter-spacing:.02em;font-size:1rem;}
+  .brand-sub{font-size:.7rem;color:var(--ink-faint);letter-spacing:.06em;text-transform:uppercase;}
+  .legend{display:flex;flex-wrap:wrap;gap:10px 22px;margin:30px 0 6px;font-size:.85rem;color:var(--ink-soft);}
+  .legend span{display:flex;align-items:center;gap:8px;}
+  .chip{width:26px;height:16px;border-radius:5px;flex-shrink:0;}
+  .chip.heart{background:var(--accent);}
+  .chip.store{background:var(--ink);}
+  .chip.step{background:var(--surface);border:1.5px solid #D8CFC8;}
+  .chip.dot{width:26px;height:0;border-top:2px dotted var(--ink-faint);border-radius:0;}
+  .diagram{margin-top:22px;background:#FFFFFF;border:1px solid var(--line);border-radius:18px;
+    padding:clamp(16px,3vw,30px);box-shadow:var(--shadow);overflow-x:auto;}
+  .diagram .mermaid{min-width:560px;display:flex;justify-content:center;}
+  .frame-note{margin-top:12px;font-size:.78rem;color:var(--ink-faint);text-align:center;}
+  footer{margin-top:44px;padding-top:20px;border-top:1px solid var(--line);
+    text-align:center;color:var(--ink-faint);font-size:.82rem;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand">
+    <div class="mark" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+    </div>
+    <div>
+      <div class="brand-name">RECKON MOTORS</div>
+      <div class="brand-sub">Garage Management System</div>
+    </div>
+  </div>
+
+  <header>
+    <span class="eyebrow">How it all connects</span>
+    <h1>The software flow, at a glance</h1>
+    <p class="dek">One customer's visit, from the first login to the final invoice — and how each screen quietly feeds the next. Follow the arrows.</p>
+  </header>
+
+  <div class="legend">
+    <span><span class="chip step"></span> A screen / step</span>
+    <span><span class="chip heart"></span> Jobcard — the heart</span>
+    <span><span class="chip store"></span> Stock store</span>
+    <span><span class="chip dot"></span> Parts flow out of stock</span>
+  </div>
+
+  <div class="diagram">
+    <pre class="mermaid">
+%%{init: {'theme':'base','themeVariables':{'fontFamily':'Segoe UI, system-ui, sans-serif','fontSize':'15px','primaryColor':'#ffffff','primaryTextColor':'#1B1D23','primaryBorderColor':'#D8CFC8','lineColor':'#B0A79F','tertiaryColor':'#F7F2EF','clusterBkg':'#F7F2EF','clusterBorder':'#E4DBD5'}}}%%
+flowchart TD
+  Login([ Log in ]):::start
+
+  Login --> SA[Super Admin<br/>head office]:::sa
+  Login --> WS([ Your workshop ]):::start
+
+  WS --> SETUP
+  subgraph SETUP [1 &#183; Set up once]
+    direction LR
+    Masters[Masters<br/>your lists]
+    Staff[Staff &amp; Roles]
+    Settings[Settings]
+  end
+
+  SETUP --> Appt
+  subgraph DAILY [2 &#183; The daily flow]
+    Appt[Appointment] --> Cust[Customer]
+    Cust --> Est[Estimate]
+    Cust --> JC
+    Est -->|approve| JC{{Jobcard}}:::heart
+    JC --> Bill[Invoice &amp; Payment]
+    Counter[Counter Sale] --> Bill
+  end
+
+  Stock[(Inventory / Stock)]:::store
+  PO[Purchase Order] --> Stock
+  Stock -. parts .-> JC
+  Stock -. parts .-> Counter
+
+  subgraph SALES [Vehicle Sales]
+    VStock[(Vehicle Stock)]:::store --> VSale[Vehicle Sale]
+  end
+  VSale --> Bill
+
+  Bill --> Cashbook[Cashbook]
+  Bill --> Ledger[Ledger]
+
+  Cashbook --> INSIGHT
+  JC --> INSIGHT
+  subgraph INSIGHT [3 &#183; See &amp; grow]
+    direction LR
+    Dashboard
+    Reports
+    Reminders
+  end
+
+  classDef start fill:#1B1D23,stroke:#1B1D23,color:#ffffff,font-weight:bold;
+  classDef sa fill:#F7F2EF,stroke:#D8CFC8,color:#5A544F;
+  classDef heart fill:#E23A36,stroke:#B32521,color:#ffffff,font-weight:bold;
+  classDef store fill:#1B1D23,stroke:#111111,color:#ffffff;
+    </pre>
+  </div>
+  <p class="frame-note">Scroll sideways on a small screen to see the whole map.</p>
+
+  <footer>RECKON MOTORS &#183; Garage Management System — software flow map</footer>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>
+  mermaid.initialize({ startOnLoad: true, securityLevel: 'loose', flowchart: { curve: 'basis' } });
+</script>
+</body>
+</html>

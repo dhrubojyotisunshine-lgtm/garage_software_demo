@@ -1,0 +1,69 @@
+# Dependencies
+node_modules/
+client/node_modules/
+server/node_modules/
+jspm_packages/
+
+# Environment
+server/.env
+.env
+.env.*
+!.env.example
+
+# Build output
+client/dist/
+client/build/
+dist/
+.next/
+out/
+.nuxt/
+.output/
+build/Release
+
+# Uploads — ignore runtime uploads, but keep the shipped default logo so it
+server/uploads/*
+!server/uploads/default_logo.png
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Cache
+.cache/
+.parcel-cache/
+.vite/
+.svelte-kit/
+**/.vitepress/dist
+**/.vitepress/cache
+.nuxt/
+.temp/
+*.tsbuildinfo
+
+# Claude Code
+.claude/
+.agents/
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+.vscode-test
+
+# Misc
+coverage/
+*.lcov
+.nyc_output/
+*.tgz
+.yarn-integrity
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/sdks
+!.yarn/versions
