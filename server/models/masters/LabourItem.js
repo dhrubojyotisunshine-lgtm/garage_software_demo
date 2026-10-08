@@ -5,6 +5,7 @@ const labourItemSchema = new mongoose.Schema({
   jobCode: { type: String, required: true },
   unit: { type: String, default: 'units' },
   subCategory: { type: String, default: 'out_source' },
+  gstRate: { type: Number, default: 0 },
   sellingPrice: { type: Number, default: 0 },
   unitPrice: { type: Number, default: 0 },
   allVehicles: { type: Boolean, default: true },

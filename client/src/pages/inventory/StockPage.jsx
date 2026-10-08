@@ -207,6 +207,10 @@ function SpareModal({ item, onClose, onSaved, makes }) {
           <label className={labelCls}>Selling Price <span className="text-red-500">*</span></label>
           <input type="number" min="0" value={form.sellingPrice ?? 0} onChange={e => setForm(f => ({ ...f, sellingPrice: Number(e.target.value) }))} className={inputCls} />
         </div>
+        <div>
+          <label className={labelCls}>GST % <span className="text-gray-400 font-normal">(used on insurance-claim billing)</span></label>
+          <input type="number" min="0" max="100" value={form.gstRate ?? 0} onChange={e => setForm(f => ({ ...f, gstRate: Math.min(100, Math.max(0, Number(e.target.value) || 0)) }))} className={inputCls} />
+        </div>
       </div>
 
       <button onClick={handleSave} disabled={saving}
@@ -300,6 +304,10 @@ function LubeModal({ item, onClose, onSaved, makes }) {
           <label className={labelCls}>Selling Price <span className="text-red-500">*</span></label>
           <input type="number" min="0" value={form.sellingPrice ?? 0} onChange={e => setForm(f => ({ ...f, sellingPrice: Number(e.target.value) }))} className={inputCls} />
         </div>
+        <div>
+          <label className={labelCls}>GST % <span className="text-gray-400 font-normal">(used on insurance-claim billing)</span></label>
+          <input type="number" min="0" max="100" value={form.gstRate ?? 0} onChange={e => setForm(f => ({ ...f, gstRate: Math.min(100, Math.max(0, Number(e.target.value) || 0)) }))} className={inputCls} />
+        </div>
       </div>
 
       <button onClick={handleSave} disabled={saving}
@@ -377,6 +385,12 @@ function JobModal({ item, onClose, onSaved, makes }) {
         <input type="number" min="0" value={form.sellingPrice ?? 0}
           onChange={e => setForm(f => ({ ...f, sellingPrice: Number(e.target.value) }))}
           className={inputCls} placeholder="0 — set per jobcard" />
+      </div>
+      <div className="mb-5">
+        <label className={labelCls}>GST % <span className="text-gray-400 font-normal">(used on insurance-claim billing)</span></label>
+        <input type="number" min="0" max="100" value={form.gstRate ?? 0}
+          onChange={e => setForm(f => ({ ...f, gstRate: Math.min(100, Math.max(0, Number(e.target.value) || 0)) }))}
+          className={inputCls} />
       </div>
 
       <button onClick={handleSave} disabled={saving}

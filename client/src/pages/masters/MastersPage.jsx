@@ -25,7 +25,19 @@ const MASTER_TABS = [
       { name: 'variant', label: 'Variant' }
     ]
   },
-  { key: 'customer-voice', label: 'Customer Voice', fields: [{ name: 'name', label: 'Option Name', required: true }] }
+  { key: 'customer-voice', label: 'Customer Voice', fields: [{ name: 'name', label: 'Option Name', required: true }] },
+  {
+    key: 'insurance-companies', label: 'Insurance Companies',
+    columns: [{ name: 'email', label: 'Email' }, { name: 'mobile', label: 'Mobile' }, { name: 'pincode', label: 'PIN Code' }],
+    fields: [
+      { name: 'name', label: 'Company Name', required: true },
+      { name: 'email', label: 'Email', type: 'email' },
+      { name: 'mobile', label: 'Mobile No.', inputMode: 'numeric', maxLength: 10, digitsOnly: true },
+      { name: 'address', label: 'Address' },
+      { name: 'pincode', label: 'PIN Code', inputMode: 'numeric', maxLength: 6, digitsOnly: true },
+      { name: 'gstin', label: 'GST No.' }
+    ]
+  }
 ];
 
 
@@ -117,6 +129,7 @@ function MasterTable({ entity, tab, makes }) {
               {entity === 'vehicle-models' && <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Make</th>}
               {entity === 'vehicle-models' && <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Variant</th>}
               {entity === 'jobcard-statuses' && <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Category</th>}
+              {tab.columns?.map(c => <th key={c.name} className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">{c.label}</th>)}
               <th className="text-center py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Actions</th>
             </tr>
           </thead>
@@ -136,6 +149,7 @@ function MasterTable({ entity, tab, makes }) {
                     <Badge variant={item.category === 'Open' ? 'open' : item.category === 'Completed' ? 'completed' : 'closed'}>{item.category}</Badge>
                   </td>
                 )}
+                {tab.columns?.map(c => <td key={c.name} className="py-3 px-4 text-gray-500">{item[c.name] || '—'}</td>)}
                 <td className="py-3 px-4">
                   <div className="flex items-center justify-center gap-1">
                     <button onClick={() => openEdit(item)} className="p-1.5 rounded-lg hover:bg-blue-50 text-blue-500"><Pencil size={14} /></button>
@@ -178,7 +192,8 @@ function MasterTable({ entity, tab, makes }) {
                 </label>
               ) : (
                 <input type={field.type || 'text'} value={form[field.name] || ''}
-                  onChange={e => setForm(f => ({ ...f, [field.name]: field.type === 'number' ? Number(e.target.value) : e.target.value }))}
+                  inputMode={field.inputMode} maxLength={field.maxLength}
+                  onChange={e => setForm(f => ({ ...f, [field.name]: field.type === 'number' ? Number(e.target.value) : field.digitsOnly ? e.target.value.replace(/\D/g, '') : e.target.value }))}
                   className={inputCls} placeholder={field.label} />
               )}
             </div>

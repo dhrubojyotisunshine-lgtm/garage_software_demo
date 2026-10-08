@@ -14,6 +14,8 @@ import { getInitials } from '../../utils/format';
 import { customerFlag } from '../../utils/customerFlag';
 import VehicleModelPicker from '../../components/ui/VehicleModelPicker';
 import CustomerEditModal from '../../components/CustomerEditModal';
+import InsuranceClaimFields from '../../components/InsuranceClaimFields';
+import { emptyInsurance, validateClaim, claimPayload } from '../../utils/insurance';
 
 function fmtDate(d) { if (!d) return '—'; return new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }); }
 
@@ -33,7 +35,7 @@ export default function CustomersPage() {
   // New customer modal
   const [showNewModal, setShowNewModal] = useState(false);
   const [editCustomer, setEditCustomer] = useState(null);
-  const [newCustomer, setNewCustomer] = useState({ name: '', mobile: '', customerType: '', vehicleNo: '', makeId: '', makeName: '', modelId: '', modelName: '', engineNo: '', chassisNo: '', color: '' });
+  const [newCustomer, setNewCustomer] = useState({ name: '', mobile: '', customerType: '', vehicleNo: '', makeId: '', makeName: '', modelId: '', modelName: '', engineNo: '', chassisNo: '', color: '', insurance: emptyInsurance() });
   const [vehicleMakes, setVehicleMakes] = useState([]);
   const [vehicleModels, setVehicleModels] = useState([]);
   const [saving, setSaving] = useState(false);
@@ -70,12 +72,15 @@ export default function CustomersPage() {
     if (!/^[6-9]\d{9}$/.test(newCustomer.mobile)) {
       toast({ title: 'Enter a valid 10-digit mobile number starting with 6-9', variant: 'error' }); return;
     }
+    const claimErr = validateClaim(newCustomer.insurance);
+    if (claimErr) { toast({ title: claimErr, variant: 'error' }); return; }
     setSaving(true);
     try {
       await customersApi.create({
         name: newCustomer.name,
         mobile: newCustomer.mobile,
         customerType: newCustomer.customerType,
+        insurance: claimPayload(newCustomer.insurance),
         vehicles: newCustomer.vehicleNo ? [{
           vehicleNo: newCustomer.vehicleNo,
           make: newCustomer.makeId,
@@ -89,7 +94,7 @@ export default function CustomersPage() {
       });
       toast({ title: 'Customer added', variant: 'success' });
       setShowNewModal(false);
-      setNewCustomer({ name: '', mobile: '', customerType: '', vehicleNo: '', makeId: '', makeName: '', modelId: '', modelName: '', engineNo: '', chassisNo: '', color: '' });
+      setNewCustomer({ name: '', mobile: '', customerType: '', vehicleNo: '', makeId: '', makeName: '', modelId: '', modelName: '', engineNo: '', chassisNo: '', color: '', insurance: emptyInsurance() });
       load();
     } catch (e) {
       toast({ title: 'Failed to add customer', description: e.response?.data?.message, variant: 'error' });
@@ -292,6 +297,7 @@ export default function CustomersPage() {
               <label className="text-xs font-medium text-gray-500 mb-1 block">Chassis No.</label>
               <input value={newCustomer.chassisNo} onChange={e => set('chassisNo', e.target.value.toUpperCase())} className={inputCls} placeholder="Chassis number" />
             </div>
+            <InsuranceClaimFields value={newCustomer.insurance} onChange={v => set('insurance', v)} />
           </div>
           <div className="flex justify-end gap-3">
             <Button variant="ghost" onClick={() => setShowNewModal(false)}>Cancel</Button>

@@ -4,6 +4,7 @@ const SparePart = require('../models/masters/SparePart');
 const Lube = require('../models/masters/Lube');
 const { generateJobcardNumber } = require('../utils/jobcardNumber');
 const { checkStock } = require('../utils/stockCheck');
+const { prepareInsurance } = require('../utils/insuranceCalc');
 const path = require('path');
 const PDFDocument = require('pdfkit');
 
@@ -16,6 +17,10 @@ const sanitizePayload = (body) => {
     if (cleaned[field] === '' || cleaned[field] === null) {
       delete cleaned[field];
     }
+  }
+  if (cleaned.insurance && (cleaned.insurance.companyId === '' || cleaned.insurance.companyId === null)) {
+    cleaned.insurance = { ...cleaned.insurance };
+    delete cleaned.insurance.companyId;
   }
   // Nested item ObjectId fields — empty string can't cast to ObjectId
   if (Array.isArray(cleaned.items)) {
@@ -127,10 +132,14 @@ const create = async (req, res) => {
     if (!stockCheck.ok) return res.status(400).json({ message: stockCheck.message });
 
     const jobcardNumber = await generateJobcardNumber(req.garage._id, req.garage.rtoNo);
-    const totals = calcTotals(body.items || [], body.discount, body.discountType);
+    // Insurance-claim jobcards: item payable split + totals come from the insurance maths.
+    let ins;
+    try { ins = prepareInsurance(body); } catch (e) { return res.status(400).json({ message: e.message }); }
+    const totals = ins ? ins.totals : calcTotals(body.items || [], body.discount, body.discountType);
 
     const jobcard = await Jobcard.create({
       ...body,
+      ...(ins ? { items: ins.items, insurance: ins.insurance } : {}),
       ...totals,
       garageId: req.garage._id,
       jobcardNumber: body.jobcardNumber || jobcardNumber
@@ -173,12 +182,16 @@ const update = async (req, res) => {
     ]);
     if (!stockCheck.ok) return res.status(400).json({ message: stockCheck.message });
 
+    // Validate insurance figures before touching stock, so a 400 leaves stock unchanged.
+    let ins;
+    try { ins = prepareInsurance(body); } catch (e) { return res.status(400).json({ message: e.message }); }
+
     await adjustStock(existing.items || [], 'increment');
 
-    const totals = calcTotals(body.items || [], body.discount, body.discountType);
+    const totals = ins ? ins.totals : calcTotals(body.items || [], body.discount, body.discountType);
     const updated = await Jobcard.findByIdAndUpdate(
       req.params.id,
-      { ...body, ...totals, updatedAt: new Date() },
+      { ...body, ...(ins ? { items: ins.items, insurance: ins.insurance } : {}), ...totals, updatedAt: new Date() },
       { new: true, runValidators: true }
     );
 

@@ -5,6 +5,7 @@ const lubeSchema = new mongoose.Schema({
   partNumber: { type: String, required: true },
   company: String,
   unit: { type: String, default: 'ltr' },
+  gstRate: { type: Number, default: 0 },
   purchasePrice: { type: Number, default: 0 },
   sellingPrice: { type: Number, default: 0 },
   unitPrice: { type: Number, default: 0 },

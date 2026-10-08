@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { jobcardsApi } from '../../api/jobcards';
 import useAuthStore from '../../store/authStore';
+import { mastersApi } from '../../api/masters';
 import TaxInvoiceDoc from '../../components/print/TaxInvoiceDoc';
+import InsuranceInvoiceDoc from '../../components/print/InsuranceInvoiceDoc';
 
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : null;
 const fmtDateTime = (d) => d ? new Date(d).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true }) : null;
@@ -13,12 +15,22 @@ export default function InvoicePage() {
   const { garage, fetchMe } = useAuthStore();
   const [jc, setJc] = useState(null);
   const [err, setErr] = useState(null);
+  const [company, setCompany] = useState(null);
+  // Insurance jobcards also need the insurer's address / GSTIN before printing.
+  const [companyReady, setCompanyReady] = useState(false);
 
   useEffect(() => {
     (async () => {
       try {
         await fetchMe();
         const { data } = await jobcardsApi.getById(id);
+        if (data.insurance?.applied && data.insurance.companyId) {
+          try {
+            const { data: list } = await mastersApi.list('insurance-companies');
+            setCompany(list.find(c => String(c._id) === String(data.insurance.companyId)) || null);
+          } catch { /* invoice still prints with the saved company name */ }
+        }
+        setCompanyReady(true);
         setJc(data);
       } catch {
         setErr('Failed to load invoice. Please close this tab and try again.');
@@ -27,14 +39,16 @@ export default function InvoicePage() {
   }, [id]);
 
   useEffect(() => {
-    if (jc && garage) {
+    if (jc && garage && companyReady) {
       const t = setTimeout(() => window.print(), 700);
       return () => clearTimeout(t);
     }
-  }, [jc, garage]);
+  }, [jc, garage, companyReady]);
 
   if (err) return <div style={{ padding: 40, fontFamily: 'sans-serif', color: '#C62828', textAlign: 'center', marginTop: 80 }}>⚠ {err}</div>;
   if (!jc || !garage) return <div style={{ padding: 40, fontFamily: 'sans-serif', color: '#94a3b8', textAlign: 'center', marginTop: 80 }}>Loading invoice…</div>;
+
+  if (jc.insurance?.applied) return <InsuranceInvoiceDoc garage={garage} jc={jc} company={company} />;
 
   const bill = jc.billAmount || 0, paid = jc.paidAmount || 0, bal = jc.balanceDue || 0;
   const paymentStatus = (bal <= 0 && (paid > 0 || bill > 0)) ? 'Paid' : paid > 0 ? 'Partial' : 'Unpaid';

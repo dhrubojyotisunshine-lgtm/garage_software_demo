@@ -17,6 +17,17 @@ const noteSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 });
 
+// Insurance claim details (only meaningful when applied === true)
+const insuranceSchema = new mongoose.Schema({
+  applied:      { type: Boolean, default: false },
+  companyId:    { type: mongoose.Schema.Types.ObjectId, ref: 'InsuranceCompany' },
+  companyName:  { type: String, default: '' },
+  policyNo:     { type: String, default: '' },
+  accidentDate: Date,
+  idv:          { type: Number, default: 0 },
+  claimNo:      { type: String, default: '' }
+}, { _id: false });
+
 const customerSchema = new mongoose.Schema({
   garageId:    { type: mongoose.Schema.Types.ObjectId, ref: 'Garage', required: true },
   name:        { type: String, required: true },
@@ -28,6 +39,7 @@ const customerSchema = new mongoose.Schema({
   address:     String,
   vehicles:    [vehicleSchema],
   driver:      { name: String, mobile: String },
+  insurance:   { type: insuranceSchema, default: () => ({ applied: false }) },
 
   // CRM fields
   status:      { type: String, enum: ['Lead', 'Active', 'VIP', 'Inactive'], default: 'Active' },

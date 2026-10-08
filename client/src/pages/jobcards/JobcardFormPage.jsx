@@ -21,6 +21,8 @@ import { Modal, Drawer } from '../../components/ui/Modal';
 import { formatCurrency, formatDateInput, getInitials } from '../../utils/format';
 import useAuthStore from '../../store/authStore';
 import LastHistoryDrawer from './LastHistoryDrawer';
+import InsuranceClaimFields from '../../components/InsuranceClaimFields';
+import { computeInsurance, emptyInsurance, validateClaim, claimPayload, claimFromSaved, isPartType, fmtMoney } from '../../utils/insurance';
 
 const PAYMENT_TYPES = ['Cash', 'UPI', 'Card', 'Cheque'];
 const TRANSACTION_TYPES = ['Advance', 'Payment', 'Refund'];
@@ -63,7 +65,7 @@ export default function JobcardFormPage() {
   const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
   const [showNewCustomerModal, setShowNewCustomerModal] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
-  const [newCustomer, setNewCustomer] = useState({ name: '', mobile: '', customerType: '', vehicleNo: '', makeId: '', makeName: '', modelId: '', modelName: '', engineNo: '', chassisNo: '', color: '' });
+  const [newCustomer, setNewCustomer] = useState({ name: '', mobile: '', customerType: '', vehicleNo: '', makeId: '', makeName: '', modelId: '', modelName: '', engineNo: '', chassisNo: '', color: '', insurance: emptyInsurance() });
 
   // Form state
   const [form, setForm] = useState({
@@ -86,6 +88,7 @@ export default function JobcardFormPage() {
     dentMarksArr: [],
     photos: [],
     items: [],
+    insurance: { ...emptyInsurance(), claimFees: 0 },
     discount: 0,
     discountType: 'amount',
     costEstimate: '',
@@ -193,6 +196,7 @@ export default function JobcardFormPage() {
         dentMarksArr: (() => { try { return JSON.parse(data.dentMarks || '[]'); } catch { return []; } })(),
         photos: data.photos || [],
         items: data.items || [],
+        insurance: { ...claimFromSaved(data.insurance), claimFees: data.insurance?.claimFees || 0 },
         discount: data.discount || 0,
         discountType: data.discountType || 'amount',
         costEstimate: data.costEstimate || '',
@@ -270,6 +274,10 @@ export default function JobcardFormPage() {
 
   const setField = (key, val) => setForm(f => ({ ...f, [key]: val }));
 
+  // Selecting a customer who has an insurance claim pre-fills the jobcard's claim block
+  // (it stays editable here; claim fees are kept).
+  const applyCustomerClaim = (c) => setForm(f => ({ ...f, insurance: { ...claimFromSaved(c?.insurance), claimFees: f.insurance?.claimFees || 0 } }));
+
   // Create a new customer-voice master inline and auto-select it.
   const addCustomerVoice = async () => {
     const name = cvSearch.trim();
@@ -312,6 +320,9 @@ export default function JobcardFormPage() {
         partNumber: masterItem.partNumber || masterItem.jobCode || '',
         qty: 1,
         unitPrice: masterItem.unitPrice || 0,
+        taxRate: masterItem.gstRate || 0,
+        depreciation: 0,
+        customerPct: 0,
         discount: 0,
         discountType: 'amount',
         finalAmount: masterItem.unitPrice || 0,
@@ -343,6 +354,9 @@ export default function JobcardFormPage() {
       partNumber: '',
       qty: 1,
       unitPrice: 0,
+      taxRate: 0,
+      depreciation: 0,
+      customerPct: 0,
       discount: 0,
       discountType: 'amount',
       finalAmount: 0,
@@ -351,7 +365,15 @@ export default function JobcardFormPage() {
     }]);
   };
 
+  // Insurance claim jobcards: the item split + totals come from the insurance maths.
+  const insOn = !!form.insurance?.applied;
+  const insCalc = insOn ? computeInsurance({ items: form.items, claimFees: form.insurance.claimFees, discount: form.discount, discountType: form.discountType }) : null;
+
   const calcTotals = () => {
+    if (insCalc) {
+      const paidAmount = form.transactions.reduce((s, t) => t.type === 'Refund' ? s - t.amount : s + Number(t.amount), 0);
+      return { ...insCalc.totals, paidAmount, balanceDue: Math.max(0, insCalc.totals.billAmount - paidAmount) };
+    }
     const labourTotal = form.items.filter(i => i.itemType === 'Labour').reduce((s, i) => s + (i.finalAmount || 0), 0);
     const spareTotal = form.items.filter(i => i.itemType === 'Spare').reduce((s, i) => s + (i.finalAmount || 0), 0);
     const lubeTotal = form.items.filter(i => i.itemType === 'Lube').reduce((s, i) => s + (i.finalAmount || 0), 0);
@@ -392,6 +414,7 @@ export default function JobcardFormPage() {
     ...form,
     dentMarks: JSON.stringify(form.dentMarksArr || []),
     ...totals,
+    insurance: insOn ? { ...claimPayload(form.insurance), claimFees: Number(form.insurance.claimFees) || 0 } : { applied: false },
     customerId: selectedCustomer._id,
     customerName: selectedCustomer.name,
     customerMobile: selectedCustomer.mobile,
@@ -402,10 +425,23 @@ export default function JobcardFormPage() {
     ...overrides,
   });
 
+  // Insurance claim: claim details required + every depreciation / customer share within 0-100.
+  const insuranceError = () => {
+    if (!insOn) return null;
+    const claimErr = validateClaim(form.insurance);
+    if (claimErr) return claimErr;
+    const bad = form.items.find(i => [i.depreciation, i.customerPct].some(v => v !== undefined && v !== '' && (isNaN(Number(v)) || Number(v) < 0 || Number(v) > 100)));
+    if (bad) return `Depreciation / customer share for "${bad.name || 'item'}" must be between 0 and 100`;
+    if (Number(form.insurance.claimFees) < 0) return 'Claim fees cannot be negative';
+    return null;
+  };
+
   const handleSave = async () => {
     if (!canEditThis) { toast({ title: 'This jobcard is closed — you do not have permission to edit it', variant: 'error' }); return; }
     if (!selectedCustomer) { toast({ title: 'Please select a customer', variant: 'error' }); return; }
     if (!form.type) { toast({ title: 'Please select a jobcard type', variant: 'error' }); return; }
+    const insErr = insuranceError();
+    if (insErr) { toast({ title: insErr, variant: 'error' }); return; }
     setSaving(true);
     try {
       const payload = buildPayload();
@@ -426,6 +462,8 @@ export default function JobcardFormPage() {
   const changeStatusTo = async (category, successMsg) => {
     if (!selectedCustomer) { toast({ title: 'Please select a customer', variant: 'error' }); return; }
     if (!form.type) { toast({ title: 'Please select a jobcard type', variant: 'error' }); return; }
+    const insErr = insuranceError();
+    if (insErr) { toast({ title: insErr, variant: 'error' }); return; }
     const target = jobcardStatuses.find(st => st.category === category);
     if (!target) {
       toast({ title: `No "${category}" status defined`, description: 'Add one under Masters → Jobcard Statuses.', variant: 'error' });
@@ -593,6 +631,7 @@ export default function JobcardFormPage() {
                       key={c._id}
                       onClick={() => {
                         setSelectedCustomer(c);
+                        applyCustomerClaim(c);
                         setSelectedVehicle(c.vehicles?.[0] || null);
                         setShowCustomerDropdown(false);
                         setCustomerSearch('');
@@ -668,6 +707,10 @@ export default function JobcardFormPage() {
                   {s.engineChassisNumber && selectedVehicle.chassisNo && <span className="ml-2 text-gray-400">Chassis: {selectedVehicle.chassisNo}</span>}
                 </div>
               )}
+              {/* Insurance claim (pre-filled from the customer; editable per jobcard) */}
+              <div className="mt-3">
+                <InsuranceClaimFields value={form.insurance} onChange={v => setField('insurance', v)} />
+              </div>
               {/* Settings-gated extra customer fields */}
               {(s.customerEmail || s.customerBirthday || s.customerPickupAddr || s.customerDeliveryAddr || s.driverDetails) && (
                 <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -887,7 +930,16 @@ export default function JobcardFormPage() {
                   <th className="text-center py-2.5 px-3 text-xs font-semibold text-gray-500 uppercase w-28">Unit Price ₹</th>
                   {s.itemWiseDiscount && <th className="text-center py-2.5 px-3 text-xs font-semibold text-gray-500 uppercase w-32">Discount</th>}
                   {s.jobwiseMechanic && <th className="text-center py-2.5 px-3 text-xs font-semibold text-gray-500 uppercase w-36">Mechanic</th>}
+                  {insOn && <>
+                    <th className="text-center py-2.5 px-3 text-xs font-semibold text-gray-500 uppercase w-20">Tax %</th>
+                    <th className="text-center py-2.5 px-3 text-xs font-semibold text-gray-500 uppercase w-24">Deprec. %</th>
+                    <th className="text-center py-2.5 px-3 text-xs font-semibold text-gray-500 uppercase w-24">Cust. %</th>
+                  </>}
                   <th className="text-right py-2.5 px-3 text-xs font-semibold text-gray-500 uppercase w-28">Amount</th>
+                  {insOn && <>
+                    <th className="text-right py-2.5 px-3 text-xs font-semibold text-gray-500 uppercase w-28">Insurance ₹</th>
+                    <th className="text-right py-2.5 px-3 text-xs font-semibold text-gray-500 uppercase w-28">Customer ₹</th>
+                  </>}
                   <th className="w-10 py-2.5 px-3" />
                 </tr>
               </thead>
@@ -969,7 +1021,24 @@ export default function JobcardFormPage() {
                           </select>
                         </td>
                       )}
+                      {insOn && <>
+                        <td className="py-2 px-3 text-center">
+                          <input type="number" min={0} value={item.taxRate ?? 0} onChange={e => updateItem(actualIdx, 'taxRate', Math.max(0, Number(e.target.value) || 0))} className="w-16 text-center border border-border rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-primary" />
+                        </td>
+                        <td className="py-2 px-3 text-center">
+                          <input type="number" min={0} max={100} value={item.depreciation ?? 0} onChange={e => updateItem(actualIdx, 'depreciation', Math.min(100, Math.max(0, Number(e.target.value) || 0)))} className="w-16 text-center border border-border rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-primary" />
+                        </td>
+                        <td className="py-2 px-3 text-center">
+                          {isPartType(item.itemType)
+                            ? <span className="text-sm text-gray-500" title="Parts: customer share equals depreciation">{insCalc.lines[actualIdx]?.customerPct ?? 0}%</span>
+                            : <input type="number" min={0} max={100} value={item.customerPct ?? 0} onChange={e => updateItem(actualIdx, 'customerPct', Math.min(100, Math.max(0, Number(e.target.value) || 0)))} className="w-16 text-center border border-border rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-primary" />}
+                        </td>
+                      </>}
                       <td className="py-2 px-3 text-right font-medium text-gray-700">{formatCurrency(item.finalAmount)}</td>
+                      {insOn && <>
+                        <td className="py-2 px-3 text-right text-xs text-gray-600">{fmtMoney((insCalc.lines[actualIdx]?.insPayable || 0) + (insCalc.lines[actualIdx]?.insGst || 0))}</td>
+                        <td className="py-2 px-3 text-right text-xs text-gray-600">{fmtMoney((insCalc.lines[actualIdx]?.custPayable || 0) + (insCalc.lines[actualIdx]?.custGst || 0))}</td>
+                      </>}
                       <td className="py-2 px-3">
                         {perm('canAddItems') && (
                           <button onClick={() => removeItem(actualIdx)} className="p-1 rounded hover:bg-red-50 text-red-400">
@@ -1147,6 +1216,23 @@ export default function JobcardFormPage() {
                       min={0}
                     />
                   </div>
+                  )}
+                  {insOn && insCalc && (
+                    <div className="mb-3 space-y-1 text-sm text-gray-600 border border-border rounded-lg p-3 bg-white">
+                      <p className="text-xs font-semibold text-gray-500 uppercase mb-1">Insurance Claim Summary</p>
+                      <div className="flex justify-between"><span>Parts (excl. GST)</span><span>{fmtMoney(insCalc.summary.partsBase)}</span></div>
+                      <div className="flex justify-between"><span>Labour (excl. GST)</span><span>{fmtMoney(insCalc.summary.labourBase)}</span></div>
+                      <div className="flex justify-between"><span>GST Total</span><span>{fmtMoney(insCalc.summary.gstTotal)}</span></div>
+                      <div className="flex items-center justify-between gap-2">
+                        <span>Claim Fees</span>
+                        <input type="number" min={0} value={form.insurance.claimFees ?? 0}
+                          onChange={e => setField('insurance', { ...form.insurance, claimFees: Math.max(0, Number(e.target.value) || 0) })}
+                          className="w-24 text-right border border-border rounded-lg px-2 py-1 text-sm" />
+                      </div>
+                      <div className="flex justify-between"><span>Round Off</span><span>{fmtMoney(insCalc.summary.roundOff)}</span></div>
+                      <div className="flex justify-between font-semibold text-gray-800 border-t border-border pt-1"><span>Insurance Payable</span><span>{fmtMoney(insCalc.summary.insurancePayable)}</span></div>
+                      <div className="flex justify-between font-semibold text-gray-800"><span>Customer Payable</span><span>{fmtMoney(insCalc.summary.customerPayable)}</span></div>
+                    </div>
                   )}
                   <div className="flex justify-between text-base font-bold text-gray-800">
                     <span>Bill Amount</span><span className="text-primary">{formatCurrency(totals.billAmount)}</span>
@@ -1386,11 +1472,14 @@ export default function JobcardFormPage() {
           makes={vehicleMakes}
           models={vehicleModels}
           onSave={async () => {
+            const claimErr = validateClaim(newCustomer.insurance);
+            if (claimErr) { toast({ title: claimErr, variant: 'error' }); return; }
             try {
               const { data } = await customersApi.create({
                 name: newCustomer.name,
                 mobile: newCustomer.mobile,
                 customerType: newCustomer.customerType,
+                insurance: claimPayload(newCustomer.insurance),
                 vehicles: newCustomer.vehicleNo ? [{
                   vehicleNo: newCustomer.vehicleNo,
                   make: newCustomer.makeId,
@@ -1403,9 +1492,10 @@ export default function JobcardFormPage() {
                 }] : []
               });
               setSelectedCustomer(data);
+              applyCustomerClaim(data);
               setSelectedVehicle(data.vehicles?.[0] || null);
               setShowNewCustomerModal(false);
-              setNewCustomer({ name: '', mobile: '', vehicleNo: '', makeId: '', makeName: '', modelId: '', modelName: '', engineNo: '', chassisNo: '', color: '' });
+              setNewCustomer({ name: '', mobile: '', vehicleNo: '', makeId: '', makeName: '', modelId: '', modelName: '', engineNo: '', chassisNo: '', color: '', insurance: emptyInsurance() });
               toast({ title: 'Customer added', variant: 'success' });
             } catch (e) {
               toast({ title: 'Failed to add customer', description: e.response?.data?.message, variant: 'error' });
@@ -1561,6 +1651,7 @@ function NewCustomerForm({ value, onChange, makes, models, onSave, onClose }) {
           <label className="text-xs font-medium text-gray-500 mb-1 block">Chassis No.</label>
           <input value={value.chassisNo || ''} onChange={e => set('chassisNo', e.target.value.toUpperCase())} className={inputCls} placeholder="Chassis number" />
         </div>
+        <InsuranceClaimFields value={value.insurance} onChange={v => set('insurance', v)} />
       </div>
       <div className="flex justify-end gap-3">
         <Button variant="ghost" onClick={onClose}>Cancel</Button>

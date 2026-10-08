@@ -8,6 +8,7 @@ const Lube = require('../models/masters/Lube');
 const CustomerVoice = require('../models/masters/CustomerVoice');
 const Staff = require('../models/masters/Staff');
 const ServicePackage = require('../models/masters/ServicePackage');
+const InsuranceCompany = require('../models/masters/InsuranceCompany');
 
 const MODEL_MAP = {
   'jobcard-types': JobcardType,
@@ -19,7 +20,8 @@ const MODEL_MAP = {
   'lubes': Lube,
   'customer-voice': CustomerVoice,
   'staff': Staff,
-  'packages': ServicePackage
+  'packages': ServicePackage,
+  'insurance-companies': InsuranceCompany
 };
 
 const getModel = (entity) => MODEL_MAP[entity];
@@ -47,6 +49,22 @@ const findDuplicate = async (Model, entity, garageId, body, excludeId) => {
   return { dup, field: codeLabelFor(entity) };
 };
 
+// Insurance Company master: name required + unique per garage; optional contact formats.
+const validateInsuranceCompany = async (garageId, body, excludeId, isUpdate) => {
+  const has = (k) => Object.prototype.hasOwnProperty.call(body, k);
+  if (!isUpdate || has('name')) {
+    const name = (body.name || '').trim();
+    if (!name) return 'Company name is required.';
+    const q = { garageId, active: { $ne: false }, name: new RegExp(`^${escapeRegex(name)}$`, 'i') };
+    if (excludeId) q._id = { $ne: excludeId };
+    if (await InsuranceCompany.exists(q)) return `Insurance company "${name}" already exists.`;
+  }
+  if (body.mobile && !/^[6-9]\d{9}$/.test(String(body.mobile).trim())) return 'Enter a valid 10-digit mobile number.';
+  if (body.pincode && !/^\d{6}$/.test(String(body.pincode).trim())) return 'PIN code must be 6 digits.';
+  if (body.email && !/^\S+@\S+\.\S+$/.test(String(body.email).trim())) return 'Enter a valid email address.';
+  return null;
+};
+
 const list = async (req, res) => {
   try {
     const Model = getModel(req.params.entity);
@@ -66,6 +84,11 @@ const create = async (req, res) => {
   try {
     const Model = getModel(req.params.entity);
     if (!Model) return res.status(404).json({ message: 'Unknown entity' });
+
+    if (req.params.entity === 'insurance-companies') {
+      const msg = await validateInsuranceCompany(req.garage._id, req.body, null, false);
+      if (msg) return res.status(400).json({ message: msg });
+    }
 
     const codeField = DEDUP_CODE_FIELD[req.params.entity];
     if (codeField && !(req.body[codeField] || '').trim()) {
@@ -87,6 +110,11 @@ const update = async (req, res) => {
   try {
     const Model = getModel(req.params.entity);
     if (!Model) return res.status(404).json({ message: 'Unknown entity' });
+
+    if (req.params.entity === 'insurance-companies') {
+      const msg = await validateInsuranceCompany(req.garage._id, req.body, req.params.id, true);
+      if (msg) return res.status(400).json({ message: msg });
+    }
 
     const codeField = DEDUP_CODE_FIELD[req.params.entity];
     if (codeField && Object.prototype.hasOwnProperty.call(req.body, codeField) && !(req.body[codeField] || '').trim()) {

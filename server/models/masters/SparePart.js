@@ -6,6 +6,7 @@ const sparePartSchema = new mongoose.Schema({
   company: String,
   subCategory: { type: String, default: 'Frequent Items' },
   unit: { type: String, default: 'units' },
+  gstRate: { type: Number, default: 0 },
   purchasePrice: { type: Number, default: 0 },
   sellingPrice: { type: Number, default: 0 },
   unitPrice: { type: Number, default: 0 },

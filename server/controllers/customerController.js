@@ -99,11 +99,24 @@ const findDuplicateReg = async (garageId, vehicles, excludeId) => {
   return null;
 };
 
+// When "Apply Insurance Claim" is on, the claim details are mandatory.
+const validateInsurance = (ins) => {
+  if (!ins || !ins.applied) return null;
+  if (!ins.companyId) return 'Select an insurance company.';
+  if (!String(ins.policyNo || '').trim()) return 'Policy No. is required for an insurance claim.';
+  if (!ins.accidentDate) return 'Accident date is required for an insurance claim.';
+  if (ins.idv === undefined || ins.idv === null || ins.idv === '' || isNaN(Number(ins.idv)) || Number(ins.idv) < 0) return 'Enter a valid IDV amount.';
+  if (!String(ins.claimNo || '').trim()) return 'Claim No. is required for an insurance claim.';
+  return null;
+};
+
 const create = async (req, res) => {
   try {
     if (!isValidMobile(req.body.mobile)) {
       return res.status(400).json({ message: 'Enter a valid 10-digit mobile number starting with 6-9' });
     }
+    const insMsg = validateInsurance(req.body.insurance);
+    if (insMsg) return res.status(400).json({ message: insMsg });
     const dupReg = await findDuplicateReg(req.garage._id, req.body.vehicles, null);
     if (dupReg) return res.status(400).json({ message: `Vehicle registration ${dupReg} is already registered to another customer.` });
 
@@ -119,6 +132,8 @@ const update = async (req, res) => {
     if (req.body.mobile !== undefined && !isValidMobile(req.body.mobile)) {
       return res.status(400).json({ message: 'Enter a valid 10-digit mobile number starting with 6-9' });
     }
+    const insMsg = validateInsurance(req.body.insurance);
+    if (insMsg) return res.status(400).json({ message: insMsg });
     const dupReg = await findDuplicateReg(req.garage._id, req.body.vehicles, req.params.id);
     if (dupReg) return res.status(400).json({ message: `Vehicle registration ${dupReg} is already registered to another customer.` });
 

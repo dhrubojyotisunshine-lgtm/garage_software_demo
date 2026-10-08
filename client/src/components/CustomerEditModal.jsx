@@ -5,6 +5,8 @@ import { mastersApi } from '../api/masters';
 import { useToast } from './ui/Toast';
 import { DateField } from './ui/DateField';
 import VehicleModelPicker from './ui/VehicleModelPicker';
+import InsuranceClaimFields from './InsuranceClaimFields';
+import { claimFromSaved, validateClaim, claimPayload } from '../utils/insurance';
 
 const inputCls = 'w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-white';
 const labelCls = 'text-xs font-medium text-gray-500 mb-1 block';
@@ -31,6 +33,7 @@ export default function CustomerEditModal({ customer, onClose, onSaved }) {
     tags: [...(customer.tags || [])],
     followUpDate: customer.followUpDate ? customer.followUpDate.slice(0, 10) : '',
     followUpNote: customer.followUpNote || '',
+    insurance: claimFromSaved(customer.insurance),
     // primary vehicle
     vehicleNo: v0.vehicleNo || '',
     makeId: v0.make || '', makeName: v0.makeName || '',
@@ -51,6 +54,8 @@ export default function CustomerEditModal({ customer, onClose, onSaved }) {
   const handleSave = async () => {
     if (!form.name.trim()) return toast({ title: 'Name is required', variant: 'error' });
     if (!/^[6-9]\d{9}$/.test(String(form.mobile).trim())) return toast({ title: 'Enter a valid 10-digit mobile number', variant: 'error' });
+    const claimErr = validateClaim(form.insurance);
+    if (claimErr) return toast({ title: claimErr, variant: 'error' });
     setSaving(true);
     try {
       const editedVehicle = {
@@ -77,6 +82,7 @@ export default function CustomerEditModal({ customer, onClose, onSaved }) {
         tags: form.tags,
         followUpDate: form.followUpDate || null,
         followUpNote: form.followUpNote,
+        insurance: claimPayload(form.insurance),
         vehicles,
       };
       await customersApi.update(customer._id, payload);
@@ -114,6 +120,10 @@ export default function CustomerEditModal({ customer, onClose, onSaved }) {
               <input value={form.gstNo} onChange={e => set('gstNo', e.target.value.toUpperCase())} className={inputCls} placeholder="GSTIN" /></div>
             <div className="sm:col-span-2"><label className={labelCls}>Address</label>
               <input value={form.address} onChange={e => set('address', e.target.value)} className={inputCls} placeholder="Address" /></div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-3">
+            <InsuranceClaimFields value={form.insurance} onChange={v => set('insurance', v)} />
           </div>
 
           {/* Tags */}

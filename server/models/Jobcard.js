@@ -11,7 +11,16 @@ const itemSchema = new mongoose.Schema({
   discountType: { type: String, default: 'amount' },
   finalAmount: { type: Number, default: 0 },
   mechanicId: mongoose.Schema.Types.ObjectId,
-  mechanicName: String
+  mechanicName: String,
+  // Insurance-claim billing (only populated when jobcard.insurance.applied)
+  taxRate: { type: Number, default: 0 },
+  depreciation: { type: Number, default: 0 },
+  customerPct: { type: Number, default: 0 },
+  insPayable: { type: Number, default: 0 },
+  insGst: { type: Number, default: 0 },
+  custPayable: { type: Number, default: 0 },
+  custGst: { type: Number, default: 0 },
+  lineTotal: { type: Number, default: 0 }
 }, { _id: true });
 
 const transactionSchema = new mongoose.Schema({
@@ -26,6 +35,21 @@ const workNoteSchema = new mongoose.Schema({
   note: String,
   createdAt: { type: Date, default: Date.now }
 }, { _id: true });
+
+const jobcardInsuranceSchema = new mongoose.Schema({
+  applied:        { type: Boolean, default: false },
+  companyId:      { type: mongoose.Schema.Types.ObjectId, ref: 'InsuranceCompany' },
+  companyName:    { type: String, default: '' },
+  policyNo:       { type: String, default: '' },
+  accidentDate:   Date,
+  idv:            { type: Number, default: 0 },
+  claimNo:        { type: String, default: '' },
+  claimFees:      { type: Number, default: 0 },
+  summary: {
+    partsBase: Number, labourBase: Number, gstTotal: Number, discountAmt: Number,
+    roundOff: Number, claimFees: Number, insurancePayable: Number, customerPayable: Number
+  }
+}, { _id: false });
 
 const jobcardSchema = new mongoose.Schema({
   garageId: { type: mongoose.Schema.Types.ObjectId, ref: 'Garage', required: true },
@@ -62,6 +86,7 @@ const jobcardSchema = new mongoose.Schema({
   accessories: [String],
   workNotes: [workNoteSchema],
   items: [itemSchema],
+  insurance: { type: jobcardInsuranceSchema, default: () => ({ applied: false }) },
   labourTotal: { type: Number, default: 0 },
   spareTotal: { type: Number, default: 0 },
   lubeTotal: { type: Number, default: 0 },
